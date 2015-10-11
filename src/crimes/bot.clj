@@ -22,8 +22,11 @@
     (println (str "Tweeting: " status))
     (statuses-update :oauth-creds creds :params {:status status})))
 
+(defn author [tweet]
+  (-> tweet :user :screen_name))
+
 (defn reply [mention]
-  (let [username (-> mention :user :screen_name)
+  (let [username (author mention)
         status (gen/tweet-safe #(gen/reply username))]
     (println (str "Replying: " status))
     (statuses-update :oauth-creds creds
@@ -31,8 +34,10 @@
                               :in-reply-to-status-id (:id_str mention)})))
 
 (defn reply-to-mentions [_ _]
-  (doseq [mention (:tweet (tsc/retrieve-queues mentions-stream))]
-    (reply mention)))
+  (->> (:tweet (tsc/retrieve-queues mentions-stream))
+       (remove #(= (author %) (System/getenv "TWITTER_USERNAME")))
+       (map reply)
+       dorun))
 
 (def scheduler
   (cronj :entries [{:id "tweet-task"
